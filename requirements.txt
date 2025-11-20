@@ -1,10 +1,13 @@
+pillow
+python-dotenv
 fastapi
 uvicorn
 python-multipart
 pydantic
-Pillow
+pydantic-settings
 google-generativeai
 tavily-python
 gtts
-request
-python-dotenv
+langchain
+langchain-core
+langchain-google-genai
