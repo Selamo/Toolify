@@ -25,7 +25,7 @@ class Settings:
     cors_origins: str = os.getenv("CORS_ORIGINS","http://localhost:3000")
 
     # AI Model settings
-    gemini_model: str = os.getenv("GEMINI_MODEL", "gemini-2.5-flash-preview")
+    gemini_model: str = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
     temperature: float = float(os.getenv("TEMPERATURE", 0.7))
     max_tokens: int = int(os.getenv("MAX_TOKENS", 2048))
 
