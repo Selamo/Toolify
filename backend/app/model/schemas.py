@@ -31,10 +31,11 @@ class ToolResearchResponse(BaseModel):
     query: str
     results: List[ResearchResult]
     youtube_links: List[YouTubeLink]
-    research_context: str 
+    research_context: str  # Context text to pass to Gemini
     timestamp: datetime
 
 
+# Keep your existing schemas as well
 class ResearchRequest(BaseModel):
     """Original research request model"""
     query: str
@@ -46,5 +47,21 @@ class ResearchResponse(BaseModel):
     """Original research response model"""
     query: str
     results: List[ResearchResult]
+    summary: str
+    timestamp: datetime
+
+
+class ManualGenerationRequest(BaseModel):
+    """Request model for manual generation"""
+    tool_name: str = Field(..., description="Name of the tool")
+    research_context: str = Field(..., description="Research data from Tavily")
+    tool_description: Optional[str] = Field(None, description="Optional description from Google Vision")
+    language: str = Field(default="en", description="Language for the manual")
+
+
+class ManualGenerationResponse(BaseModel):
+    """Response model for manual generation"""
+    tool_name: str
+    manual: str
     summary: str
     timestamp: datetime
