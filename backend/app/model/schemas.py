@@ -15,6 +15,7 @@ class YouTubeLink(BaseModel):
     """YouTube tutorial link"""
     title: str
     url: str
+    content: str
     score: float = Field(default=0.0, description="Relevance score of the YouTube link")
 
 
@@ -30,12 +31,9 @@ class ToolResearchResponse(BaseModel):
     """Response model for tool research"""
     tool_name: str
     query: str
-    results: List[ResearchResult]
-    youtube_links: List[YouTubeLink]
-    research_context: str  
-    structured_context: Optional[dict] = None 
+    research_results: List[ResearchResult]
+    youtube_info: List[YouTubeLink]
     timestamp: datetime
-    manual_generation_payload: Optional[dict] = None 
 
 
 
