@@ -68,3 +68,16 @@ class ManualGenerationResponse(BaseModel):
     summary: str
     audio_file: Optional[str] = None 
     timestamp: datetime
+
+
+class ChatRequest(BaseModel):
+    message: str
+
+class ChatResponse(BaseModel):
+    content: str
+    timestamp: datetime
+    language: str
+
+class LLMStructuredOutput(BaseModel):
+    language: str = Field(description="The language of the response, chosen from en, fr, or pdg.")
+    response: str = Field(description="The content of the response in the identified language.")
