@@ -32,3 +32,25 @@ def recognize_tools_in_image(image_bytes: bytes) -> Optional[str]:
     except Exception as e:
         print(f"An error occurred during tool recognition: {e}")
         return None
+
+def describe_image(image_bytes: bytes) -> Optional[str]:
+    """
+    Describes the contents of an image using the Gemini Vision API.
+
+    Args:
+        image_bytes: The bytes of the image to analyze.
+
+    Returns:
+        A text description of the image, or None if an error occurs.
+    """
+    try:
+        model = genai.GenerativeModel(settings.gemini_model)
+        image = Image.open(io.BytesIO(image_bytes))
+        prompt = "Describe what you see in this image in a concise but detailed way."
+        response = model.generate_content([prompt, image])
+        
+        description = response.text.strip()
+        return description if description else None
+    except Exception as e:
+        print(f"An error occurred during image description: {e}")
+        return None

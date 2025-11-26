@@ -1,19 +1,20 @@
 
-from fastapi import APIRouter, File, UploadFile, HTTPException
+from fastapi import APIRouter, UploadFile, HTTPException, Depends
 from app.model.schemas import ToolResearchResponse
 from app.services.tavily_service import perform_tool_research
 from app.services.vision_service import recognize_tools_in_image
+from app.dependencies import image_file_validator
 
 router = APIRouter(prefix="/api", tags=["Tool Recognition"])
 
 @router.post("/recognize-tool", response_model=ToolResearchResponse)
-async def recognize_tool(file: UploadFile = File(...)):
+async def recognize_tool(file: UploadFile = Depends(image_file_validator)):
     """
     Accepts an image file, uses Gemini Vision to recognize a tool,
     and then performs research on that tool using Tavily.
 
     Args:
-        file: An image file.
+        file: An image file, validated to be an image type.
 
     Returns:
         A ToolResearchResponse with research results and YouTube links for the identified tool.
