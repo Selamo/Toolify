@@ -1,6 +1,7 @@
 import type { Config } from "tailwindcss";
 
 const config: Config = {
+  darkMode: "class",
   content: [
     "./pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./components/**/*.{js,ts,jsx,tsx,mdx}",
@@ -9,21 +10,26 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        background: "var(--background)",
+        foreground: "var(--foreground)",
+        primary: {
+          DEFAULT: "var(--primary)",
+          foreground: "var(--primary-foreground)",
+        },
+        muted: {
+          DEFAULT: "var(--muted)",
+          foreground: "var(--muted-foreground)",
+        },
+        card: {
+          DEFAULT: "var(--card)",
+          foreground: "var(--card-foreground)",
+        },
+        border: "var(--border)",
+        input: "var(--input)",
         orange: {
           primary: "#ff6b35",
           hover: "#ff8555",
           dark: "#e55a2b",
-        },
-        dark: {
-          primary: "#1a1a1a",
-          surface: "#2d2d2d",
-          elevated: "#3a3a3a",
-          border: "#404040",
-        },
-        text: {
-          primary: "#ffffff",
-          secondary: "#a0a0a0",
-          muted: "#6b7280",
         },
       },
       fontFamily: {
