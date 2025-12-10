@@ -11,8 +11,8 @@ export function ChatInterface() {
         <div className="flex-1 flex flex-col h-full relative overflow-hidden bg-background">
             {/* Header/Model Selector */}
             <header className="absolute top-0 left-0 right-0 p-4 flex justify-center z-10">
-                <button className="flex items-center gap-2 px-4 py-2 bg-card border border-border rounded-full shadow-sm hover:shadow-md transition-all text-sm font-medium hover:border-orange-500/30">
-                    <Wrench className="w-4 h-4 text-orange-500 fill-orange-500" />
+                <button className="flex items-center gap-2 px-6 py-3 bg-card border border-border rounded-full shadow-sm hover:shadow-md transition-all font-bold text-lg hover:border-orange-500/30">
+                    <Wrench className="w-5 h-5 text-orange-500 fill-orange-500" />
                     <span>Toolify</span>
                 </button>
             </header>
@@ -25,7 +25,7 @@ export function ChatInterface() {
                     <div className="flex flex-col items-center gap-6 animate-fade-in">
                         {/* Box removed as requested */}
                         <h1 className="text-3xl md:text-4xl font-semibold text-center text-balance bg-gradient-to-r from-foreground to-muted-foreground bg-clip-text text-transparent pb-1">
-                            Hey {isLoaded && user?.firstName ? user.firstName : "Human"}, how can I assist you?
+                            Hey {isLoaded && user?.firstName ? user.firstName : "Human"}, {getGreeting()} how can I assist you?
                         </h1>
                     </div>
 
@@ -45,4 +45,11 @@ export function ChatInterface() {
             </div>
         </div>
     );
+}
+
+function getGreeting() {
+    const hour = new Date().getHours();
+    if (hour < 12) return "Good Morning";
+    if (hour < 18) return "Good Afternoon";
+    return "Good Evening";
 }
