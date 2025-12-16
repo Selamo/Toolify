@@ -23,6 +23,7 @@ app.add_middleware(
 app.include_router(manual.router)
 app.include_router(tool_recognition.router)
 app.include_router(chat.router)
+# CRITICAL: Registers the authentication router
 app.include_router(auth.router)
 
 # Health check endpoint

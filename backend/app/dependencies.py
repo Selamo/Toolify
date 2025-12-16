@@ -20,12 +20,13 @@ def optional_image_file_validator(file: Optional[UploadFile] = File(None)):
     if file and not file.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="File uploaded is not an image.")
     return file
-
+# CRITICAL: HTTPBearer is used to extract the Bearer token from the Authorization header
 security = HTTPBearer()
 
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
     token = credentials.credentials
     try:
+        # CRITICAL: Validates the token with Supabase Auth and retrieves the user
         response = supabase.auth.get_user(token)
         if not response or not response.user:
              raise HTTPException(

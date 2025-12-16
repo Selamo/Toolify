@@ -20,6 +20,7 @@ async def get_test_token(creds: TestTokenRequest):
     try:
         # 1. First, try to sign in (handles existing users)
         try:
+            # CRITICAL: Attempts to sign in the user with Supabase to get a session token
             res = supabase.auth.sign_in_with_password({"email": email, "password": password})
             if res.user and res.session:
                 # User exists and authenticated successfully

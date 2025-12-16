@@ -1,10 +1,12 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 
 // Define public routes that don't require authentication
+// CRITICAL: This matcher determines which routes are accessible without a session.
 const isPublicRoute = createRouteMatcher(["/", "/sign-in(.*)", "/sign-up(.*)"]);
 
 export default clerkMiddleware(async (auth, request) => {
   if (!isPublicRoute(request)) {
+    // CRITICAL: Protects all non-public routes. Redirects to sign-in if no session exists.
     await auth.protect();
   }
 });
