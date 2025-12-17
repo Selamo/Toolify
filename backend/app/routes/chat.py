@@ -168,6 +168,7 @@ async def chat(
 
     except Exception as e:
         print(f"Chat Error: {e}")
+        raise HTTPException(status_code=500, detail=f"Chat Error: {str(e)}")
 
 @router.get("/chats")
 async def get_chats(

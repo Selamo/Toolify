@@ -3,6 +3,10 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import Optional
 from app.config import supabase
 from supabase import Client
+import jwt
+from jwt.algorithms import RSAAlgorithm
+import json
+import urllib.request
 
 def image_file_validator(file: UploadFile = File(...)):
     """
@@ -21,25 +25,100 @@ def optional_image_file_validator(file: Optional[UploadFile] = File(None)):
     if file and not file.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="File uploaded is not an image.")
     return file
+
 # CRITICAL: HTTPBearer is used to extract the Bearer token from the Authorization header
 security = HTTPBearer()
 
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
     token = credentials.credentials
     try:
-        # CRITICAL: Validates the token with Supabase Auth and retrieves the user
-        response = supabase.auth.get_user(token)
-        if not response or not response.user:
-             raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid authentication credentials",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
-        # Return the user object which has .id property
-        return response.user
-    except HTTPException:
-        raise
+        # 1. Decode header to get Key ID (kid)
+        unverified_header = jwt.get_unverified_header(token)
+        kid = unverified_header.get('kid')
+        
+        # 2. Fetch Clerk's JWKS (Simple in-memory caching)
+        # TODO: Move this URL to config
+        jwks_url = "https://warm-man-46.clerk.accounts.dev/.well-known/jwks.json"
+        
+        # Simple global cache for JWKS to avoid fetching on every request
+        if not hasattr(get_current_user, "jwks_cache"):
+            with urllib.request.urlopen(jwks_url) as response:
+                get_current_user.jwks_cache = json.loads(response.read())
+        
+        jwks = get_current_user.jwks_cache
+            
+        # 3. Find the matching key
+        public_key = None
+        for key in jwks['keys']:
+            if key['kid'] == kid:
+                public_key = RSAAlgorithm.from_jwk(json.dumps(key))
+                break
+        
+        if not public_key:
+             # If key not found, maybe cache is stale? Refresh once.
+             with urllib.request.urlopen(jwks_url) as response:
+                get_current_user.jwks_cache = json.loads(response.read())
+                jwks = get_current_user.jwks_cache
+                for key in jwks['keys']:
+                    if key['kid'] == kid:
+                        public_key = RSAAlgorithm.from_jwk(json.dumps(key))
+                        break
+             
+             if not public_key:
+                raise Exception("Public key not found in JWKS")
+
+        # 4. Verify the token
+        payload = jwt.decode(
+            token,
+            public_key,
+            algorithms=["RS256"],
+            options={"verify_aud": False}, # Clerk tokens might not have audience set for backend
+            leeway=60 # Add 60 seconds leeway for clock skew
+        )
+        
+        # 5. Construct a user object that mimics Supabase's response
+        class User:
+            def __init__(self, id, email):
+                self.id = id
+                self.email = email
+        
+        # Clerk "sub" is the user ID
+        user_id = payload.get("sub")
+        email = payload.get("email", "unknown")
+
+        # SYNC: Ensure user exists in public.profiles
+        # This is necessary because we are bypassing Supabase Auth's auto-creation
+        try:
+            # We use the SERVICE KEY client here because RLS might block checking/creating profiles
+            # if the user doesn't exist yet.
+            from app.config import supabase as admin_client
+            
+            # Check if profile exists
+            # We can't use .eq('id', user_id).single() easily without potentially throwing
+            # So we count.
+            res = admin_client.table("profiles").select("id", count="exact").eq("id", user_id).execute()
+            
+            if res.count == 0:
+                print(f"DEBUG: User {user_id} not found in profiles. Creating...")
+                # Profile table only has id, updated_at, full_name, avatar_url
+                # We don't have email column.
+                admin_client.table("profiles").insert({
+                    "id": user_id,
+                    # "email": email, # Column does not exist
+                    # We could add full_name if we had it, but for now just ID is enough
+                }).execute()
+                print(f"DEBUG: User {user_id} created in profiles.")
+                
+        except Exception as sync_err:
+            print(f"WARNING: Failed to sync user profile: {sync_err}")
+            # We don't raise here, we let the FK constraint fail if it must, 
+            # or maybe the user already exists and the check failed for another reason.
+
+        # Clerk doesn't always put email in the JWT unless configured, but we need an ID
+        return User(id=user_id, email=email)
+
     except Exception as e:
+        print(f"DEBUG: Manual Auth exception: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=f"Could not validate credentials: {str(e)}",
@@ -56,18 +135,16 @@ async def get_user_supabase_client(credentials: HTTPAuthorizationCredentials = D
         # Create a new client with the user's token
         # We use the ANON key + the user's Bearer token
         from app.config import settings
-        from supabase import create_client
+        from supabase import create_client, ClientOptions
         
         client = create_client(
             settings.supabase_url, 
             settings.supabase_anon_key,
-            options={
-                "global": {
-                    "headers": {
-                        "Authorization": f"Bearer {token}"
-                    }
+            options=ClientOptions(
+                headers={
+                    "Authorization": f"Bearer {token}"
                 }
-            }
+            )
         )
         return client
     except Exception as e:

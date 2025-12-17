@@ -1,6 +1,5 @@
 from fastapi import APIRouter, HTTPException, Depends
 from app.config import supabase
-from app.model.schemas import TokenResponse, TestTokenRequest
 from app.dependencies import get_current_user
 
 router = APIRouter(prefix="/api", tags=["Auth"])
@@ -17,17 +16,6 @@ async def get_me(user: dict = Depends(get_current_user)):
         "email": user.email,
         "message": "Backend authentication successful"
     }
-
-@router.post("/test-token", response_model=TokenResponse, deprecated=True)
-async def get_test_token(creds: TestTokenRequest):
-    """
-    [DEPRECATED] Generates a test token for Swagger UI testing.
-    This endpoint uses Supabase Auth (password) directly and is NOT compatible
-    with Clerk authentication. Use the frontend to get a token instead.
-    
-    - If user exists: signs them in
-    - If user doesn't exist: creates them via Admin API and sets up profile
-    """
     email = creds.email
     password = creds.password
     full_name = creds.full_name
