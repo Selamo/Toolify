@@ -20,7 +20,8 @@ class Settings:
     google_api_key: str = os.getenv("GOOGLE_API_KEY")
     tavily_api_key: str = os.getenv("TAVILY_API_KEY", "DUMMY_TAVILY_KEY")
     supabase_url: str = os.environ.get("SUPABASE_URL")
-    supabase_key: str = os.environ.get("SUPABASE_SERVICE_KEY")
+    supabase_service_key: str = os.environ.get("SUPABASE_SERVICE_KEY")
+    supabase_anon_key: str = os.environ.get("SUPABASE_ANON_KEY")
 
     # Server settings
     host: str = os.getenv("HOST", "0.0.0.0")
@@ -69,4 +70,5 @@ def load_google_vision_llm():
     )
 
 # Supabase Client Initialization
-supabase: Client = create_client(settings.supabase_url, settings.supabase_key)
+# Supabase Admin Client (Bypasses RLS)
+supabase: Client = create_client(settings.supabase_url, settings.supabase_service_key)

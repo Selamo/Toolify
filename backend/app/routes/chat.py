@@ -8,8 +8,9 @@ from app.chains.chat_chain import _chat_chain
 from app.services.vision_service import describe_image, recognize_tools_in_image
 from app.services.tavily_service import perform_tool_research
 from app.services.audio_service import audio_service
-from app.dependencies import optional_image_file_validator, get_current_user
+from app.dependencies import optional_image_file_validator, get_current_user, get_user_supabase_client
 from app.config import supabase
+from supabase import Client
 
 try:
     from langsmith import uuid7
@@ -27,7 +28,8 @@ async def chat(
     session_id: Optional[str] = Form(None),
     file: Optional[UploadFile] = Depends(optional_image_file_validator),
     voice: Optional[UploadFile] = File(None),
-    user: dict = Depends(get_current_user)
+    user: dict = Depends(get_current_user),
+    supabase_client: Client = Depends(get_user_supabase_client)
 ):
     """
     A multi-turn chat endpoint to converse with the Gemini AI assistant.
@@ -101,7 +103,7 @@ async def chat(
                     # Fix: research_response is the Pydantic model
                     scan_data["analysis_result"] = research_response.model_dump(mode='json')
                     
-                    scan_res = supabase.table("scans").insert(scan_data).execute()
+                    scan_res = supabase_client.table("scans").insert(scan_data).execute()
                     if scan_res.data:
                         scan_id = scan_res.data[0]['id']
 
@@ -135,12 +137,12 @@ async def chat(
                 "title": message[:50] + "..." if message else "New Chat",
                 "scan_id": str(scan_id) if scan_id else None
             }
-            chat_res = supabase.table("chats").insert(chat_data).execute()
+            chat_res = supabase_client.table("chats").insert(chat_data).execute()
             if chat_res.data:
                 chat_id = chat_res.data[0]['id']
         
         # Save User Message
-        supabase.table("messages").insert({
+        supabase_client.table("messages").insert({
             "chat_id": str(chat_id) if chat_id else None,
             "role": "user",
             "content": message # Save original message, not full_message with context
@@ -151,7 +153,7 @@ async def chat(
         structured_response = await _chat_chain.invoke_chat(full_message, chat_id) # Pass chat_id as session_id
 
         # Save Assistant Message
-        supabase.table("messages").insert({
+        supabase_client.table("messages").insert({
             "chat_id": str(chat_id) if chat_id else None,
             "role": "assistant",
             "content": structured_response.response
@@ -168,13 +170,16 @@ async def chat(
         print(f"Chat Error: {e}")
 
 @router.get("/chats")
-async def get_chats(user: dict = Depends(get_current_user)):
+async def get_chats(
+    user: dict = Depends(get_current_user),
+    supabase_client: Client = Depends(get_user_supabase_client)
+):
     """Fetch all chats for the current user."""
     try:
         # Check if user.id is available, might be a string or property depending on Depends(get_current_user)
         # Based on dependencies.py, it returns response.user which has .id
         user_id = user.id
-        res = supabase.table("chats").select("*").eq("user_id", str(user_id)).order("created_at", desc=True).execute()
+        res = supabase_client.table("chats").select("*").eq("user_id", str(user_id)).order("created_at", desc=True).execute()
         return res.data
     except Exception as e:
         print(f"Error fetching chats: {e}")
@@ -182,7 +187,11 @@ async def get_chats(user: dict = Depends(get_current_user)):
 
 
 @router.get("/chats/{chat_id}/messages")
-async def get_chat_messages(chat_id: str, user: dict = Depends(get_current_user)):
+async def get_chat_messages(
+    chat_id: str, 
+    user: dict = Depends(get_current_user),
+    supabase_client: Client = Depends(get_user_supabase_client)
+):
     """Fetch messages for a specific chat."""
     try:
         user_id = user.id
@@ -190,14 +199,14 @@ async def get_chat_messages(chat_id: str, user: dict = Depends(get_current_user)
         # Verify ownership
         # Note: .single() raises error if no row found, handle that
         try:
-            chat_check = supabase.table("chats").select("user_id").eq("id", chat_id).single().execute()
+            chat_check = supabase_client.table("chats").select("user_id").eq("id", chat_id).single().execute()
         except:
              raise HTTPException(status_code=404, detail="Chat not found")
              
         if not chat_check.data or chat_check.data["user_id"] != str(user_id):
             raise HTTPException(status_code=403, detail="Not authorized to view this chat")
         
-        res = supabase.table("messages").select("*").eq("chat_id", chat_id).order("created_at", desc=False).execute()
+        res = supabase_client.table("messages").select("*").eq("chat_id", chat_id).order("created_at", desc=False).execute()
         return res.data
     except HTTPException:
         raise

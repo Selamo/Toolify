@@ -5,15 +5,17 @@ from fastapi import APIRouter, UploadFile, HTTPException, Depends
 from app.model.schemas import ToolResearchResponse
 from app.services.tavily_service import perform_tool_research
 from app.services.vision_service import recognize_tools_in_image
-from app.dependencies import image_file_validator, get_current_user
+from app.dependencies import image_file_validator, get_current_user, get_user_supabase_client
 from app.config import supabase
+from supabase import Client
 
 router = APIRouter(prefix="/api", tags=["Tool Recognition"])
 
 @router.post("/recognize-tool", response_model=ToolResearchResponse)
 async def recognize_tool(
     file: UploadFile = Depends(image_file_validator),
-    user: dict = Depends(get_current_user)
+    user: dict = Depends(get_current_user),
+    supabase_client: Client = Depends(get_user_supabase_client)
 ):
     """
     Accepts an image file, uses Gemini Vision to recognize a tool,
@@ -41,7 +43,7 @@ async def recognize_tool(
         file_path = f"{user.id}/{uuid.uuid4()}.{file_ext}"
         
         try:
-            supabase.storage.from_("tool-images").upload(
+            supabase_client.storage.from_("tool-images").upload(
                 file=image_bytes,
                 path=file_path,
                 file_options={"content-type": file.content_type}
@@ -60,7 +62,7 @@ async def recognize_tool(
             "analysis_result": research_results.model_dump(mode='json'),
         }
         
-        response = supabase.table("scans").insert(scan_data).execute()
+        response = supabase_client.table("scans").insert(scan_data).execute()
         scan_id = response.data[0]['id']
 
         # Add scan_id to response
