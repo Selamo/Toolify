@@ -27,15 +27,19 @@ export function ChatInterface() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false); // For mobile
   const [playingMessageId, setPlayingMessageId] = useState<string | null>(null);
-  const [speechSynthesis, setSpeechSynthesis] = useState<SpeechSynthesis | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  // Initialize speech synthesis
+  // Initialize audio element
   useEffect(() => {
-    if (typeof window !== 'undefined' && window.speechSynthesis) {
-      setSpeechSynthesis(window.speechSynthesis);
-    }
+    audioRef.current = new Audio();
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+    };
   }, []);
 
   const scrollToBottom = () => {
@@ -177,49 +181,74 @@ export function ChatInterface() {
     setCurrentChatId(null);
     setMessages([]);
     // Stop any playing audio
-    if (speechSynthesis) {
-      speechSynthesis.cancel();
+    if (audioRef.current) {
+      audioRef.current.pause();
       setPlayingMessageId(null);
     }
   };
 
-  const handlePlayAudio = (messageId: string, content: string) => {
-    if (!speechSynthesis) {
-      console.error('Speech synthesis not supported');
-      return;
+  const handlePlayAudio = async (messageId: string, content: string) => {
+    try {
+      // If already playing this message, stop it
+      if (playingMessageId === messageId && audioRef.current) {
+        audioRef.current.pause();
+        setPlayingMessageId(null);
+        return;
+      }
+
+      // Stop any currently playing audio
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
+
+      // Get auth token
+      const token = await getToken();
+      if (!token) {
+        console.error('No auth token available');
+        return;
+      }
+
+      // Set loading state
+      setPlayingMessageId(messageId);
+
+      // Call backend TTS endpoint
+      const formData = new FormData();
+      formData.append('text', content);
+      formData.append('language', 'en');
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://toolify-api.onrender.com'}/api/generate-tts`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate audio');
+      }
+
+      // Get audio blob and create URL
+      const audioBlob = await response.blob();
+      const audioUrl = URL.createObjectURL(audioBlob);
+
+      // Play audio
+      if (audioRef.current) {
+        audioRef.current.src = audioUrl;
+        audioRef.current.onended = () => {
+          setPlayingMessageId(null);
+          URL.revokeObjectURL(audioUrl);
+        };
+        audioRef.current.onerror = () => {
+          setPlayingMessageId(null);
+          URL.revokeObjectURL(audioUrl);
+        };
+        await audioRef.current.play();
+      }
+    } catch (error) {
+      console.error('Audio playback error:', error);
+      setPlayingMessageId(null);
     }
-
-    // If already playing this message, stop it
-    if (playingMessageId === messageId) {
-      speechSynthesis.cancel();
-      setPlayingMessageId(null);
-      return;
-    }
-
-    // Stop any currently playing audio
-    speechSynthesis.cancel();
-
-    // Create and configure speech
-    const utterance = new SpeechSynthesisUtterance(content);
-    utterance.rate = 0.9; // Slightly slower for clarity
-    utterance.pitch = 1.0;
-    utterance.volume = 1.0;
-
-    // Set playing state
-    setPlayingMessageId(messageId);
-
-    // Handle end of speech
-    utterance.onend = () => {
-      setPlayingMessageId(null);
-    };
-
-    utterance.onerror = (event) => {
-      console.error('Speech synthesis error:', event);
-      setPlayingMessageId(null);
-    };
-
-    // Start speaking
-    speechSynthesis.speak(utterance);
   };
 
   return (
@@ -277,15 +306,15 @@ export function ChatInterface() {
         </header>
 
         {/* Main Content Area */}
-        <div className="flex-1 flex flex-col items-center justify-center p-3 sm:p-4 w-full max-w-5xl mx-auto overflow-hidden mt-14 sm:mt-16 md:mt-0">
+        <div className="flex-1 flex flex-col items-center justify-center p-2 sm:p-3 md:p-4 w-full max-w-5xl mx-auto overflow-hidden mt-14 sm:mt-16 md:mt-0">
           <div className="flex flex-col w-full h-full relative">
             {/* Chat Messages Area */}
-            <div className="flex-1 overflow-y-auto w-full px-2 sm:px-4 py-3 sm:py-4 space-y-4 sm:space-y-6 scrollbar-hide">
+            <div className="flex-1 overflow-y-auto w-full px-2 sm:px-3 md:px-4 py-2 sm:py-3 md:py-4 space-y-3 sm:space-y-4 md:space-y-6 scrollbar-hide">
               {messages.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full gap-6 sm:gap-8 animate-fade-in">
+                <div className="flex flex-col items-center justify-center h-full gap-4 sm:gap-6 md:gap-8 animate-fade-in">
                   {/* Logo / Welcome - Only shown when no messages */}
-                  <div className="flex flex-col items-center gap-4 sm:gap-6 px-4">
-                    <h1 className="text-2xl sm:text-3xl md:text-4xl font-semibold text-center text-balance bg-gradient-to-r from-foreground to-muted-foreground bg-clip-text text-transparent pb-1">
+                  <div className="flex flex-col items-center gap-3 sm:gap-4 md:gap-6 px-3 sm:px-4">
+                    <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-semibold text-center text-balance bg-gradient-to-r from-foreground to-muted-foreground bg-clip-text text-transparent pb-1">
                       Hey{" "}
                       {isLoaded && user?.firstName ? user.firstName : "Human"},{" "}
                       {getGreeting()} how can I assist you?
@@ -293,7 +322,7 @@ export function ChatInterface() {
                   </div>
                 </div>
               ) : (
-                <div className="flex flex-col gap-4 sm:gap-6 w-full max-w-3xl mx-auto pb-4">
+                <div className="flex flex-col gap-3 sm:gap-4 md:gap-6 w-full max-w-3xl mx-auto pb-3 sm:pb-4">
                   {messages.map((message) => (
                     <div
                       key={message.id}
@@ -359,7 +388,7 @@ export function ChatInterface() {
             </div>
 
             {/* Input Area */}
-            <div className="w-full shrink-0 pb-4 sm:pb-6 pt-2 bg-gradient-to-t from-background via-background to-transparent z-10 px-2 sm:px-4">
+            <div className="w-full shrink-0 pb-3 sm:pb-4 md:pb-6 pt-2 bg-gradient-to-t from-background via-background to-transparent z-10 px-2 sm:px-3 md:px-4">
               <ChatInput onSend={handleSendMessage} isLoading={isLoading} />
             </div>
           </div>
