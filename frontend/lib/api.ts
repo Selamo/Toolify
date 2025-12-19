@@ -1,9 +1,6 @@
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://toolify-api.onrender.com';
 
-// Log API URL for debugging
-console.log('🔗 Toolify API URL:', API_URL);
-
 export interface Message {
     id?: string;
     role: "user" | "assistant";
@@ -82,7 +79,6 @@ export async function sendMessage(
         }
 
         const data = await response.json();
-        console.log('✅ Message sent successfully:', data);
         return data;
     } catch (error) {
         if (error instanceof APIError) {
@@ -98,8 +94,6 @@ export async function sendMessage(
  */
 export async function getChats(token: string): Promise<Chat[]> {
     try {
-        console.log('📥 Fetching chats...');
-
         const response = await fetch(`${API_URL}/api/chats`, {
             headers: {
                 Authorization: `Bearer ${token}`,
@@ -118,7 +112,6 @@ export async function getChats(token: string): Promise<Chat[]> {
         }
 
         const data = await response.json();
-        console.log('✅ Fetched chats:', data.length, 'chats');
         return data;
     } catch (error) {
         if (error instanceof APIError) {
@@ -134,8 +127,6 @@ export async function getChats(token: string): Promise<Chat[]> {
  */
 export async function getChatMessages(token: string, chatId: string): Promise<Message[]> {
     try {
-        console.log('📥 Fetching messages for chat:', chatId);
-
         const response = await fetch(`${API_URL}/api/chats/${chatId}/messages`, {
             headers: {
                 Authorization: `Bearer ${token}`,
@@ -158,7 +149,6 @@ export async function getChatMessages(token: string, chatId: string): Promise<Me
         }
 
         const data = await response.json();
-        console.log('✅ Fetched messages:', data.length, 'messages');
         return data;
     } catch (error) {
         if (error instanceof APIError) {
