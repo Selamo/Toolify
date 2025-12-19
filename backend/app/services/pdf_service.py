@@ -66,7 +66,7 @@ class PDFService:
             # Upload to Supabase
             file_path = f"{user_id}/{temp_filename}"
             with open(temp_filename, "rb") as f:
-                supabase.storage.from_("manual-pdfs").upload(
+                supabase.storage.from_("tool-images").upload(
                     file=f,
                     path=file_path,
                     file_options={"content-type": "application/pdf"}
@@ -74,7 +74,7 @@ class PDFService:
             
             # Get Public URL
             # Note: The bucket must be public for get_public_url to work
-            res = supabase.storage.from_("manual-pdfs").get_public_url(file_path)
+            res = supabase.storage.from_("tool-images").get_public_url(file_path)
             return res
 
         finally:
